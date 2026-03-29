@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CampusBite - 食记</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,700;0,800;1,800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#FF8C42", "on-primary": "#ffffff",
+          "primary-container": "#FFDCC7", "on-primary-container": "#451b00",
+          "surface": "#f6f6f6", "on-surface": "#2d2f2f",
+          "on-surface-variant": "#5a5c5c", "surface-container": "#e7e8e8",
+          "surface-container-high": "#e1e3e3", "surface-container-highest": "#d4d6d6",
+          "surface-container-low": "#f0f1f1", "outline": "#767777",
+        },
+        fontFamily: { "headline": ["Plus Jakarta Sans"], "body": ["Be Vietnam Pro"], "label": ["Be Vietnam Pro"] },
+        borderRadius: { "DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px" },
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .active-icon { font-variation-settings: 'FILL' 1; }
+  body { min-height: 100dvh; overflow-x: hidden; }
+  .nav-rail { top: 50%; transform: translateY(-50%); transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  .nav-item { position: relative; z-index: 10; transition: transform 0.4s ease, opacity 0.4s ease; }
+  #nav-indicator { position: absolute; width: 48px; height: 48px; background-color: rgba(255,140,66,0.2); border-radius: 12px; transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); z-index: 0; pointer-events: none; }
+  body.ai-active { overflow: hidden; }
+  .ai-active aside.nav-rail { width: 280px; left: 24px; border-radius: 2rem; height: 80vh; padding: 0; overflow: hidden; }
+  .ai-active #nav-indicator { width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important; border-radius: 2rem; opacity: 1; background-color: #FF8C42; }
+  .ai-active .nav-item { transform: translateY(100px); opacity: 0; pointer-events: none; }
+  .history-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; transition: opacity 0.4s ease 0.3s; z-index: 20; color: white; display: flex; flex-direction: column; }
+  .ai-active .history-content { opacity: 1; pointer-events: auto; }
+  .ai-input-wrapper { transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  .ai-active .ai-input-wrapper { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); width: calc(100% - 380px); z-index: 100; max-width: 800px; }
+  .recommendation-cards { transition: transform 0.6s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease; }
+  .ai-active .recommendation-cards { transform: translateY(100vh); opacity: 0; }
+  .hero-header { transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); transform-origin: left top; }
+  .ai-active .hero-header { transform: translateY(20px) scale(0.6); opacity: 0; }
+  .chat-container { position: fixed; top: 100px; left: 320px; right: 40px; bottom: 140px; opacity: 0; pointer-events: none; transition: opacity 0.4s ease 0.4s; overflow-y: auto; padding-right: 20px; }
+  .ai-active .chat-container { opacity: 1; pointer-events: auto; }
+  @keyframes magical-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+  .ai-input-glow-wrapper { position: relative; padding: 3px; border-radius: 9999px; transition: all 0.3s ease; }
+  .ai-input-glow-wrapper:hover, .ai-active .ai-input-glow-wrapper { background: linear-gradient(90deg,#FF8C42,#FFDCC7,#ff3d00,#FF8C42); background-size: 300% 300%; animation: magical-flow 2s linear infinite; box-shadow: 0 0 20px rgba(255,140,66,0.4); }
+  @keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .chat-bubble { animation: slideIn 0.4s ease forwards; }
+  /* Content panels */
+  .content-panel { display: none; }
+  .content-panel.active { display: block; }
+  /* Restaurant & Posts styles */
+  .restaurant-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+  @media(max-width:1100px){.restaurant-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:700px){.restaurant-grid{grid-template-columns:1fr}}
+  .rest-card { border-radius: 16px; padding: 20px; min-height: 200px; display: flex; flex-direction: column; cursor: pointer; box-shadow: 0 8px 24px rgba(45,47,47,0.12); transition: transform 0.2s,box-shadow 0.2s; position: relative; overflow: hidden; background: #fff; }
+  .rest-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(45,47,47,0.18); }
+  .rest-card-g1{border-left:4px solid #964300}.rest-card-g2{border-left:4px solid #f9873e}.rest-card-g3{border-left:4px solid #c45c12}.rest-card-g4{border-left:4px solid #e8a060}.rest-card-g5{border-left:4px solid #7a3a00}.rest-card-g6{border-left:4px solid #b85a1a}
+  .rest-canteen{font-size:.75rem;color:#2d2f2f;margin-bottom:6px}
+  .rest-window{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.35rem;color:#964300;margin:0 0 10px;line-height:1.25}
+  .rest-dish{font-size:.9rem;color:#2d2f2f;margin-bottom:14px;flex:1}
+  .rest-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px}
+  .rest-tag{padding:4px 10px;border-radius:999px;background:rgba(150,67,0,.1);font-size:.75rem;font-weight:600;color:#964300}
+  .rest-detail-btn{position:absolute;right:16px;bottom:16px;padding:8px 14px;border-radius:10px;border:none;background:rgba(255,255,255,.95);color:#964300;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+  .masonry{column-count:2;column-gap:20px}
+  .post-card{break-inside:avoid;margin-bottom:20px;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(45,47,47,.12);overflow:hidden;transition:transform .2s;cursor:pointer}
+  .post-card:hover{transform:translateY(-2px)}
+  .post-img{width:100%;background-size:cover;background-position:center}
+  .post-img-g1{background-image:linear-gradient(160deg,#964300 0%,#f9873e 100%)}
+  .post-img-g2{background-image:linear-gradient(45deg,#c45c12,#ffd4a8)}
+  .post-img-g3{background-image:linear-gradient(200deg,#5c2d00,#f9873e)}
+  .post-img-g4{background-image:linear-gradient(120deg,#f9873e,#006b1b)}
+  .post-img-g5{background-image:linear-gradient(90deg,#8b4510,#f9873e)}
+  .post-img-g6{background-image:linear-gradient(180deg,#2d2f2f,#964300)}
+  .post-img-g7{background-image:linear-gradient(135deg,#f9873e,#e7e8e8)}
+  .post-img-g8{background-image:linear-gradient(220deg,#964300,#ffb366)}
+  .post-body{padding:14px 16px 16px}
+  .post-excerpt{font-size:.9rem;color:#2d2f2f;margin:0 0 12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .post-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:.8rem;color:#5a5c5c}
+  .post-tag-inline{padding:2px 8px;border-radius:6px;background:rgba(249,135,62,.15);color:#964300;font-weight:600}
+  .fab-post{position:fixed;right:32px;bottom:32px;width:56px;height:56px;border-radius:50%;border:none;background:linear-gradient(145deg,#f9873e,#964300);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(150,67,0,.4);z-index:90;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+  .fab-post:hover{transform:scale(1.06)}
+  /* Modals */
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(45,47,47,.45);z-index:200;align-items:center;justify-content:center;padding:24px}
+  .modal-backdrop.is-open{display:flex}
+  .modal{background:#e7e8e8;border-radius:16px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);position:relative}
+  @keyframes modalIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .modal{animation:modalIn .25s ease}
+  .modal-close{position:absolute;top:14px;right:14px;width:40px;height:40px;border:none;border-radius:10px;background:rgba(255,255,255,.9);color:#2d2f2f;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1}
+  .modal-hero{height:120px;border-radius:16px 16px 0 0;background:linear-gradient(135deg,#964300,#f9873e)}
+  .modal-content{padding:24px 24px 28px}
+  .modal-window{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;color:#964300;margin:0 0 8px}
+  .modal-canteen{font-size:.9rem;color:#5a5c5c;margin-bottom:16px}
+  .modal-dish{padding:12px 14px;background:#fff;border-radius:12px;margin-bottom:20px;font-size:.95rem}
+  .modal-dish strong{color:#5a5c5c;font-size:.8rem;display:block;margin-bottom:4px}
+  .modal-reviews-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin-bottom:12px;color:#2d2f2f}
+  .review-item{padding:12px 14px;background:#fff;border-radius:12px;margin-bottom:10px;font-size:.9rem;border-left:4px solid #006b1b}
+  .review-author{font-weight:700;color:#2d2f2f;margin-bottom:4px}
+  .review-text{color:#5a5c5c}
+  .btn-want-eat{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border:none;border-radius:999px;background:linear-gradient(135deg,#f9873e,#e86a20);color:#fff;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;box-shadow:0 4px 16px rgba(249,135,62,.4);transition:transform .15s;margin-top:12px;width:100%;justify-content:center}
+  .modal-post{padding:20px 24px 24px;max-width:480px}
+  .post-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+  .post-modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;color:#2d2f2f;margin:0}
+  .post-modal-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .btn-post-publish{padding:8px 18px;border:none;border-radius:999px;background:linear-gradient(135deg,#f9873e,#e86a20);color:#fff;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer}
+  .btn-post-esc{padding:8px 16px;border:none;border-radius:999px;background:#d8d9d9;color:#2d2f2f;font-weight:600;font-size:.85rem;cursor:pointer}
+  .post-modal-upload{height:100px;border:2px dashed rgba(150,67,0,.35);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#5a5c5c;font-size:.875rem;margin-bottom:16px;cursor:pointer}
+  .post-modal-textarea{width:100%;min-height:120px;padding:16px;border:none;border-radius:12px;background:#e7e8e8;font-family:'Be Vietnam Pro',sans-serif;font-size:.95rem;color:#2d2f2f;resize:vertical;outline:none}
+  .post-modal-textarea::placeholder{color:#5a5c5c}
+  /* Post detail modal */
+  .pd-backdrop{display:none;position:fixed;inset:0;background:rgba(28,27,26,.5);backdrop-filter:blur(4px);z-index:400;align-items:center;justify-content:center;padding:40px;opacity:0;transition:opacity .3s ease}
+  .pd-backdrop.is-open{display:flex;opacity:1}
+  .pd-modal{background:#fdf8f5;border-radius:2.5rem;width:100%;max-width:1100px;max-height:90vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.3);display:flex;transform:scale(.92);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1)}
+  .pd-backdrop.is-open .pd-modal{transform:scale(1)}
+  .pd-close-global{position:fixed;top:24px;right:32px;color:white;background:transparent;border:none;cursor:pointer;padding:8px;border-radius:50%;transition:background .2s;z-index:410;display:none}
+  .pd-backdrop.is-open .pd-close-global{display:block}
+  .pd-close-global:hover{background:rgba(255,255,255,.2)}
+  .pd-close-global .material-symbols-outlined{font-size:40px}
+  .pd-left{width:50%;position:relative;overflow:hidden;flex-shrink:0}
+  .pd-left img{width:100%;height:100%;object-fit:cover;display:block}
+  .pd-left-ph{width:100%;height:100%;min-height:500px;display:flex;align-items:center;justify-content:center;font-size:6rem}
+  .pd-right{width:50%;padding:48px;overflow-y:auto;display:flex;flex-direction:column}
+  .pd-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+  .pd-tags{display:flex;gap:8px;flex-wrap:wrap}
+  .pd-tag{padding:4px 12px;border-radius:8px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .pd-tag-hi{background:#ffdbcb;color:#76330c}
+  .pd-tag-loc{background:#f2edea;color:#54433b}
+  .pd-meta-row{display:flex;align-items:center;gap:12px}
+  .pd-date{color:#5a5c5c;font-size:.875rem;font-weight:500}
+  .pd-views{color:#5a5c5c;font-size:.8rem}
+  .pd-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:2rem;font-weight:800;line-height:1.2;color:#2d2f2f;margin-bottom:28px}
+  .pd-quote{padding-left:24px;border-left:4px solid #f9873e;margin-bottom:28px}
+  .pd-quote-text{font-size:1.2rem;font-style:italic;font-weight:500;color:#5a5c5c;line-height:1.6}
+  .pd-content{font-size:.95rem;line-height:1.85;color:#5a5c5c}
+  .pd-content p{margin-bottom:14px}
+  .pd-foot-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:24px}
+  .pd-foot-tag{padding:4px 12px;border-radius:99px;background:rgba(150,67,0,.1);color:#964300;font-size:12px;font-weight:600}
+  @media(max-width:900px){.pd-modal{flex-direction:column;max-width:600px}.pd-left,.pd-right{width:100%}.pd-left{min-height:300px}.pd-right{padding:32px}.pd-title{font-size:1.5rem}}
+  /* Filter chips */
+  .filter-scroll{display:flex;gap:10px;overflow-x:auto;padding:4px 0 20px;scrollbar-width:thin;scrollbar-color:#f9873e transparent}
+  .filter-chip{flex-shrink:0;padding:8px 16px;border-radius:999px;border:1px solid rgba(150,67,0,.25);background:#fff;color:#2d2f2f;font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s}
+  .filter-chip:hover,.filter-chip.is-active{background:linear-gradient(135deg,#964300,#f9873e);color:#fff;border-color:transparent}
+</style>
+</head>
+<body class="bg-[#fbfbfb] text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 right-0 h-20 flex items-center justify-between px-8 z-50 bg-[#fbfbfb]/80 backdrop-blur-md">
+  <div class="flex items-center gap-4">
+    <span class="material-symbols-outlined text-primary cursor-pointer text-2xl">menu</span>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-primary" style="font-size:32px;">restaurant</span>
+    <h1 class="font-headline font-black text-2xl tracking-tight text-primary italic">CampusBite</h1>
+  </div>
+  <div class="flex items-center gap-4">
+    <button class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-on-surface-variant text-2xl">search</span>
+    </button>
+    <div class="w-11 h-11 rounded-full bg-surface-container-high overflow-hidden border-2 border-white shadow-sm cursor-pointer flex items-center justify-center">
+      <span class="material-symbols-outlined text-on-surface-variant">person</span>
+    </div>
+  </div>
+</header>
+
+<!-- Floating Navigation Rail -->
+<aside class="fixed left-6 nav-rail hidden md:flex flex-col items-center z-40 w-20 bg-white/90 backdrop-blur-md rounded-full shadow-2xl border border-gray-100/50 py-10 h-auto">
+  <div id="nav-indicator"></div>
+  <nav class="flex flex-col gap-12 w-full items-center relative h-full">
+    <a class="nav-item flex flex-col items-center gap-2 group active" data-id="home" href="#" onclick="switchTab('home',this)">
+      <div class="icon-box w-12 h-12 flex items-center justify-center"><span class="material-symbols-outlined text-2xl text-primary active-icon">home</span></div>
+      <span class="label font-headline font-bold text-[10px] uppercase tracking-wider text-primary">Home</span>
+    </a>
+    <a class="nav-item flex flex-col items-center gap-2 group" data-id="restaurant" href="#" onclick="switchTab('restaurant',this)">
+      <div class="icon-box w-12 h-12 flex items-center justify-center"><span class="material-symbols-outlined text-2xl text-on-surface-variant">restaurant</span></div>
+      <span class="label font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface-variant">Rest</span>
+    </a>
+    <a class="nav-item flex flex-col items-center gap-2 group" data-id="posts" href="#" onclick="switchTab('posts',this)">
+      <div class="icon-box w-12 h-12 flex items-center justify-center"><span class="material-symbols-outlined text-2xl text-on-surface-variant">forum</span></div>
+      <span class="label font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface-variant">Posts</span>
+    </a>
+    <a class="nav-item flex flex-col items-center gap-2 group" data-id="map" href="#" onclick="goToMap()">
+      <div class="icon-box w-12 h-12 flex items-center justify-center"><span class="material-symbols-outlined text-2xl text-on-surface-variant">map</span></div>
+      <span class="label font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface-variant">Map</span>
+    </a>
+    <a class="nav-item flex flex-col items-center gap-2 group" data-id="profile" href="#" onclick="switchTab('profile',this)">
+      <div class="icon-box w-12 h-12 flex items-center justify-center"><span class="material-symbols-outlined text-2xl text-on-surface-variant">person</span></div>
+      <span class="label font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface-variant">Profile</span>
+    </a>
+    <!-- AI History Overlay -->
+    <div class="history-content flex flex-col w-full h-full">
+      <button class="p-8 flex items-center gap-4 border-b border-white/20 hover:bg-white/10 transition-colors group" onclick="toggleAI(false)">
+        <span class="material-symbols-outlined text-3xl transition-transform group-hover:-translate-x-1">arrow_back</span>
+        <span class="font-headline font-bold tracking-tight text-lg">返回</span>
+      </button>
+      <div class="flex-grow p-6 flex flex-col gap-4 overflow-y-auto" id="chatHistorySidebar">
+        <p class="font-headline font-bold text-xs uppercase tracking-[0.2em] opacity-60 mb-2">对话历史</p>
+      </div>
+      <div class="p-8 border-t border-white/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center">
+            <span class="material-symbols-outlined text-white">auto_awesome</span>
+          </div>
+          <div>
+            <p class="font-headline font-bold text-sm">AI 推荐助手</p>
+            <p class="text-[10px] opacity-70 uppercase tracking-widest">Active session</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main Content -->
+<main class="md:ml-32 pt-28 pb-24 px-6 md:px-12 min-h-screen">
+
+  <!-- Home Panel -->
+  <div class="max-w-5xl mx-auto content-panel active" id="content-home">
+    <header class="hero-header mb-10 text-center md:text-left">
+      <h2 class="font-headline font-extrabold text-4xl md:text-6xl text-on-surface tracking-tight leading-tight">
+        What are we <span class="text-primary">craving</span> today?
+      </h2>
+      <div class="h-1.5 w-24 bg-primary/20 mt-6 rounded-full mx-auto md:mx-0"></div>
+    </header>
+
+    <!-- Chat container (AI mode) -->
+    <div class="chat-container" id="chatContainer">
+      <div class="flex flex-col gap-6 max-w-3xl" id="chatList">
+        <div class="flex gap-4 items-start chat-bubble">
+          <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
+            <span class="material-symbols-outlined text-sm">auto_awesome</span>
+          </div>
+          <div class="bg-white p-6 rounded-3xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
+            <p class="font-body text-on-surface leading-relaxed">你好！告诉我你想吃什么，我来帮你推荐校园里最合适的窗口 🍜</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Input -->
+    <div class="ai-input-wrapper mb-14 max-w-3xl">
+      <div class="ai-input-glow-wrapper" onclick="toggleAI(true)">
+        <div class="flex items-center gap-4 bg-white p-2 rounded-full border border-gray-100 relative z-10">
+          <span class="material-symbols-outlined text-primary ml-6 text-2xl">auto_awesome</span>
+          <input id="searchInput" class="bg-transparent border-none focus:ring-0 flex-grow font-body text-lg placeholder:text-outline py-4" placeholder="我想吃辣的，快一点的..." type="text" autocomplete="off"/>
+          <button id="btnSend" class="bg-primary text-on-primary px-8 py-4 rounded-full font-headline font-bold text-sm tracking-wide uppercase transition-all hover:brightness-110 active:scale-95 shadow-md shadow-primary/20">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendation Cards -->
+    <div class="recommendation-cards" id="recommendationCards">
+      <div id="ai-card-placeholder" class="text-center py-16 text-on-surface-variant">
+        <span class="material-symbols-outlined text-6xl text-primary/30 mb-4 block">restaurant_menu</span>
+        <p class="font-headline font-bold text-lg">输入你的想法，AI 帮你找到最合适的一家</p>
+        <p class="text-sm mt-2 text-on-surface-variant">比如：想吃辣的、便宜的、出餐快的...</p>
+      </div>
+      <div id="ai-result-card" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Restaurant Panel -->
+  <div class="max-w-5xl mx-auto content-panel" id="content-restaurant">
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <h1 class="font-headline font-extrabold text-3xl text-primary">校园餐厅</h1>
+    </div>
+    <div class="filter-scroll mb-4">
+      <button type="button" class="filter-chip is-active" data-filter="all">全部</button>
+      <button type="button" class="filter-chip" data-filter="c1">一食堂</button>
+      <button type="button" class="filter-chip" data-filter="c2">二食堂</button>
+      <button type="button" class="filter-chip" data-filter="c3">三食堂</button>
+      <button type="button" class="filter-chip" data-filter="big">量大</button>
+      <button type="button" class="filter-chip" data-filter="cheap">便宜</button>
+      <button type="button" class="filter-chip" data-filter="fast">出餐快</button>
+    </div>
+    <div class="restaurant-grid" id="restaurantGrid"></div>
+  </div>
+
+  <!-- Posts Panel -->
+  <div class="max-w-5xl mx-auto content-panel" id="content-posts">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="font-headline font-extrabold text-3xl text-primary">同学说</h1>
+      <button type="button" id="btnPostTop" class="px-5 py-2.5 rounded-full bg-primary text-white font-headline font-bold text-sm shadow-md shadow-primary/30 hover:brightness-110">发帖</button>
+    </div>
+    <div class="masonry" id="masonryEl"></div>
+    <button type="button" class="fab-post" id="fabPost" aria-label="发帖">
+      <span class="material-symbols-outlined" style="font-size:28px;">add</span>
+    </button>
+  </div>
+
+  <!-- Profile Panel -->
+  <div class="max-w-5xl mx-auto content-panel py-20" id="content-profile">
+    <div class="flex flex-col items-center justify-center text-center bg-white rounded-[2.5rem] p-20 shadow-lg border border-gray-50 min-h-[60vh]">
+      <span class="material-symbols-outlined text-7xl text-primary mb-6">person</span>
+      <h2 class="font-headline font-extrabold text-3xl text-on-surface mb-2">我的主页</h2>
+      <p class="text-on-surface-variant font-body">功能开发中，敬请期待。</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-lg flex justify-around items-center py-4 px-6 z-50 border-t border-gray-100">
+  <a class="flex flex-col items-center gap-1 text-primary" href="#" onclick="switchTab('home',this)">
+    <span class="material-symbols-outlined active-icon">home</span>
+    <span class="text-[10px] font-headline font-bold uppercase tracking-wider">Home</span>
+  </a>
+  <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#" onclick="switchTab('restaurant',this)">
+    <span class="material-symbols-outlined">restaurant</span>
+    <span class="text-[10px] font-headline font-bold uppercase tracking-wider">Rest</span>
+  </a>
+  <button onclick="openPostModalFn()" class="mt-[-2.5rem] bg-primary w-16 h-16 rounded-full flex items-center justify-center shadow-xl border-4 border-[#fbfbfb]">
+    <span class="material-symbols-outlined text-white text-3xl">add</span>
+  </button>
+  <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#" onclick="goToMap()">
+    <span class="material-symbols-outlined">map</span>
+    <span class="text-[10px] font-headline font-bold uppercase tracking-wider">Map</span>
+  </a>
+  <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#" onclick="switchTab('posts',this)">
+    <span class="material-symbols-outlined">forum</span>
+    <span class="text-[10px] font-headline font-bold uppercase tracking-wider">Posts</span>
+  </a>
+</nav>
+
+<!-- Restaurant Detail Modal -->
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <button type="button" class="modal-close" id="modalClose"><span class="material-symbols-outlined">close</span></button>
+    <div class="modal-hero"></div>
+    <div class="modal-content">
+      <h2 class="modal-window" id="modalWindowTitle"></h2>
+      <p class="modal-canteen" id="modalCanteen"></p>
+      <div class="modal-dish" id="modalDishWrap"><strong>推荐菜品</strong><span id="modalDish"></span></div>
+      <p class="modal-reviews-title">同学评价</p>
+      <div id="modalReviews"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Post Compose Modal -->
+<div class="modal-backdrop" id="postModal" role="dialog" aria-modal="true">
+  <div class="modal modal-post">
+    <div class="post-modal-head">
+      <h2 class="post-modal-title">发帖</h2>
+      <div class="post-modal-actions">
+        <button type="button" class="btn-post-publish">发布</button>
+        <button type="button" class="btn-post-esc">ESC</button>
+      </div>
+    </div>
+    <div class="post-modal-upload" id="postUploadZone">
+      <span class="material-symbols-outlined">add_photo_alternate</span>
+      <span>点击添加图片（可选）</span>
+    </div>
+    <textarea class="post-modal-textarea" id="postTextarea" placeholder="请写明食堂（如「一食堂三楼」）、窗口（如「7号窗口」）与推荐菜，系统将自动提取评价摘录与情绪标签。"></textarea>
+  </div>
+</div>
+
+<!-- Post Detail Modal -->
+<div class="pd-backdrop" id="pdBackdrop">
+  <button class="pd-close-global" id="pdCloseGlobal" type="button"><span class="material-symbols-outlined">close</span></button>
+  <div class="pd-modal">
+    <div class="pd-left" id="pdLeft"></div>
+    <div class="pd-right">
+      <div class="pd-header">
+        <div class="pd-tags"><span class="pd-tag pd-tag-hi" id="pdTag">同学推荐</span><span class="pd-tag pd-tag-loc" id="pdLoc"></span></div>
+        <div class="pd-meta-row"><span class="pd-views" id="pdViews"></span><span class="pd-date" id="pdDate"></span></div>
+      </div>
+      <h1 class="pd-title" id="pdTitle"></h1>
+      <div class="pd-quote" id="pdQuoteWrap"><p class="pd-quote-text" id="pdQuote"></p></div>
+      <div class="pd-content" id="pdContent"></div>
+      <div class="pd-foot-tags" id="pdFootTags"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var API_BASE = 'http://localhost:5000';
+
+  function getDeviceId() {
+    var id = localStorage.getItem('device_id');
+    if (!id) { id = 'device_' + Math.random().toString(36).substr(2,9); localStorage.setItem('device_id', id); }
+    return id;
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function fmtDate(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d.getTime())) return String(iso); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fmtQuote(q) { if (!q) return ''; var s = String(q).trim(); if (!s) return ''; return /^[「"]/.test(s) ? s : '「'+s+'」'; }
+
+  // ── Navigation ──
+  function goToMap() { window.location.href = '/map'; }
+
+  function updateIndicator() {
+    if (document.body.classList.contains('ai-active')) return;
+    var ai = document.querySelector('.nav-item.active'); if (!ai) return;
+    var ind = document.getElementById('nav-indicator');
+    var ib = ai.querySelector('.icon-box');
+    var aside = document.querySelector('aside');
+    if (!aside || !ib) return;
+    var ar = aside.getBoundingClientRect(), ir = ib.getBoundingClientRect();
+    ind.style.top = (ir.top-ar.top)+'px'; ind.style.left = (ir.left-ar.left)+'px';
+    ind.style.width = ir.width+'px'; ind.style.height = ir.height+'px';
+  }
+
+  function switchTab(tabId, el) {
+    if (window.event) window.event.preventDefault();
+    if (document.body.classList.contains('ai-active')) return;
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.classList.remove('active');
+      var lbl = item.querySelector('.label'); if (lbl) { lbl.classList.remove('text-primary'); lbl.classList.add('text-on-surface-variant'); }
+      var icon = item.querySelector('.material-symbols-outlined'); if (icon) { icon.classList.remove('active-icon','text-primary'); icon.classList.add('text-on-surface-variant'); }
+    });
+    if (el && el.closest && el.closest('aside')) {
+      el.classList.add('active');
+      var lbl = el.querySelector('.label'); if (lbl) { lbl.classList.replace('text-on-surface-variant','text-primary'); }
+      var icon = el.querySelector('.material-symbols-outlined'); if (icon) { icon.classList.add('active-icon'); icon.classList.replace('text-on-surface-variant','text-primary'); }
+      updateIndicator();
+    }
+    document.querySelectorAll('.content-panel').forEach(function(p) { p.classList.remove('active'); });
+    var target = document.getElementById('content-'+tabId);
+    if (target) target.classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+    if (tabId === 'restaurant') loadRestaurantData();
+    if (tabId === 'posts') loadPostsData();
+  }
+
+  function toggleAI(on) {
+    if (on) { document.body.classList.add('ai-active'); }
+    else { document.body.classList.remove('ai-active'); updateIndicator(); }
+  }
+
+  window.addEventListener('load', updateIndicator);
+  window.addEventListener('resize', updateIndicator);
+
+  // ── AI Chat ──
+  var chatList = document.getElementById('chatList');
+  var searchInput = document.getElementById('searchInput');
+  var btnSend = document.getElementById('btnSend');
+  var aiResultCard = document.getElementById('ai-result-card');
+  var aiCardPlaceholder = document.getElementById('ai-card-placeholder');
+
+  function appendUserBubble(text) {
+    var w = document.createElement('div'); w.className = 'flex gap-4 items-start justify-end chat-bubble';
+    w.innerHTML = '<div class="bg-primary text-white p-5 rounded-3xl rounded-tr-none shadow-md max-w-[85%]"><p class="font-body leading-relaxed">'+esc(text)+'</p></div><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant">person</span></div>';
+    chatList.appendChild(w); return w;
+  }
+  function appendAIBubble(text) {
+    var w = document.createElement('div'); w.className = 'flex gap-4 items-start chat-bubble';
+    w.innerHTML = '<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0"><span class="material-symbols-outlined text-sm">auto_awesome</span></div><div class="bg-white p-5 rounded-3xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]"><p class="font-body text-on-surface leading-relaxed">'+esc(text)+'</p></div>';
+    chatList.appendChild(w); w.scrollIntoView({behavior:'smooth',block:'end'}); return w;
+  }
+  function appendLoadingBubble() {
+    var w = document.createElement('div'); w.className = 'flex gap-4 items-start chat-bubble';
+    w.innerHTML = '<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0"><span class="material-symbols-outlined text-sm">auto_awesome</span></div><div class="bg-white p-5 rounded-3xl rounded-tl-none shadow-sm border border-gray-100"><p class="text-on-surface-variant text-sm">AI 正在思考中...</p></div>';
+    chatList.appendChild(w); w.scrollIntoView({behavior:'smooth',block:'end'}); return w;
+  }
+
+  function renderAICard(c) {
+    aiCardPlaceholder.style.display = 'none'; aiResultCard.style.display = 'block';
+    var colorMap = {'出餐快':'bg-green-50 text-green-700 border-green-100','量大':'bg-yellow-50 text-yellow-700 border-yellow-100','便宜':'bg-blue-50 text-blue-700 border-blue-100','辣':'bg-red-50 text-red-700 border-red-100','清淡':'bg-teal-50 text-teal-700 border-teal-100'};
+    var tagsHtml = (c.tags||[]).map(function(t){ var cl=colorMap[t]||'bg-orange-50 text-orange-700 border-orange-100'; return '<span class="px-4 py-2 rounded-full font-headline text-xs font-bold border '+cl+'">'+esc(t)+'</span>'; }).join('');
+    aiResultCard.innerHTML =
+      '<section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">'+
+      '<div class="lg:col-span-8 bg-white rounded-[2.5rem] overflow-hidden shadow-xl border border-gray-50">'+
+      '<div class="relative h-56 w-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center">'+
+      '<span style="font-size:5rem;">🍽️</span>'+
+      '<div class="absolute top-6 left-6 bg-white/95 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">'+
+      '<span class="material-symbols-outlined text-primary text-lg">location_on</span>'+
+      '<span class="text-xs font-headline font-bold tracking-wider text-on-surface uppercase">'+esc((c.canteen||'')+' · '+(c.shop_name||''))+'</span></div></div>'+
+      '<div class="p-8"><p class="text-primary font-headline font-bold text-xs uppercase tracking-[0.15em] mb-2">'+esc(c.shop_name||'')+'</p>'+
+      '<h3 class="font-headline font-extrabold text-2xl md:text-3xl text-on-surface leading-tight mb-6">'+esc(c.dish_name||'')+'</h3>'+
+      '<div class="mb-6 pl-6 border-l-4 border-primary-container italic"><p class="font-body text-lg text-on-surface-variant">"'+esc(c.quote||'')+'"</p></div>'+
+      '<div class="flex flex-wrap gap-3">'+tagsHtml+'</div></div></div>'+
+      '<div class="lg:col-span-4"><div class="bg-primary p-8 rounded-[2.5rem] flex flex-col items-center text-center shadow-2xl">'+
+      '<div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6"><span class="material-symbols-outlined text-white text-4xl">favorite</span></div>'+
+      '<h4 class="font-headline font-extrabold text-white text-xl mb-6">找到心仪的了吗？</h4>'+
+      '<button onclick="this.innerHTML=\'❤️ 已收藏\';this.disabled=true" class="w-full bg-white text-primary py-4 rounded-2xl font-headline font-black text-sm tracking-widest uppercase shadow-xl hover:scale-[1.02] transition-all">🤍 我想吃</button>'+
+      '</div></div></section>';
+    // compact bubble in chat
+    var bw = document.createElement('div'); bw.className = 'flex gap-4 items-start chat-bubble';
+    bw.innerHTML = '<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0"><span class="material-symbols-outlined text-sm">auto_awesome</span></div><div class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]"><div class="text-xs text-on-surface-variant mb-1">'+esc((c.canteen||'')+' · '+(c.shop_name||''))+'</div><div class="font-headline font-bold text-on-surface text-base mb-1">'+esc(c.dish_name||'')+'</div><div class="text-sm text-on-surface-variant italic">"'+esc(c.quote||'')+'"</div></div>';
+    chatList.appendChild(bw); bw.scrollIntoView({behavior:'smooth',block:'end'});
+  }
+
+  function handleSend() {
+    var text = (searchInput.value||'').trim(); if (!text) return;
+    searchInput.value = ''; btnSend.disabled = true;
+    toggleAI(true);
+    appendUserBubble(text);
+    var loading = appendLoadingBubble();
+    fetch(API_BASE+'/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text})})
+      .then(function(r){ return r.json(); })
+      .then(function(result){
+        chatList.removeChild(loading); btnSend.disabled = false;
+        if (result.code !== 0) { appendAIBubble('暂时无法推荐，请稍后再试'); return; }
+        var d = result.data;
+        if (d.reply) appendAIBubble(d.reply);
+        if (d.card) renderAICard(d.card);
+      })
+      .catch(function(){ chatList.removeChild(loading); btnSend.disabled = false; appendAIBubble('网络错误，请重试'); });
+  }
+
+  document.getElementById('ai-input-container') && document.getElementById('ai-input-container').addEventListener('click', function(){ toggleAI(true); });
+  searchInput.addEventListener('focus', function(){ toggleAI(true); });
+  btnSend.addEventListener('click', handleSend);
+  searchInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); handleSend(); } });
+
+  // ── Restaurant ──
+  var restaurantGrid = document.getElementById('restaurantGrid');
+  function loadRestaurantData() {
+    if (!restaurantGrid) return;
+    restaurantGrid.innerHTML = '<p class="text-on-surface-variant text-center py-8 col-span-3">加载中...</p>';
+    fetch(API_BASE+'/api/recommendations')
+      .then(function(r){ if(!r.ok) throw new Error('bad'); return r.json(); })
+      .then(function(body){
+        var list = Array.isArray(body.data) ? body.data : [];
+        restaurantGrid.innerHTML = '';
+        if (!list.length) { restaurantGrid.innerHTML='<p class="col-span-3 text-center py-8 text-on-surface-variant">暂无推荐</p>'; return; }
+        list.forEach(function(item,idx){
+          var art = document.createElement('article'); art.className='rest-card rest-card-g'+((idx%6)+1);
+          art.setAttribute('data-id', item.id||''); art.setAttribute('data-window', item.shop_name||'');
+          art.setAttribute('data-canteen', item.canteen||''); art.setAttribute('data-dish', item.dish_name||'');
+          art.setAttribute('data-rev1', item.quote||''); art.setAttribute('data-rev2','');
+          art.setAttribute('data-author1','推荐'); art.setAttribute('data-author2','');
+          var ce=document.createElement('div'); ce.className='rest-canteen'; ce.textContent=item.canteen||'';
+          var we=document.createElement('h2'); we.className='rest-window'; we.textContent=item.shop_name||'';
+          var de=document.createElement('p'); de.className='rest-dish'; de.textContent=item.dish_name?'推荐：'+item.dish_name:'';
+          var tw=document.createElement('div'); tw.className='rest-tags';
+          (item.tags||[]).forEach(function(t){ var sp=document.createElement('span'); sp.className='rest-tag'; sp.textContent=t; tw.appendChild(sp); });
+          var db=document.createElement('button'); db.type='button'; db.className='rest-detail-btn'; db.textContent='查看详情';
+          art.appendChild(ce); art.appendChild(we); art.appendChild(de); art.appendChild(tw); art.appendChild(db);
+          restaurantGrid.appendChild(art);
+        });
+      })
+      .catch(function(){ restaurantGrid.innerHTML='<p class="col-span-3 text-center py-8 text-on-surface-variant">加载失败</p>'; });
+  }
+
+  // ── Posts ──
+  var masonryEl = document.getElementById('masonryEl');
+  function loadPostsData() {
+    if (!masonryEl) return;
+    masonryEl.innerHTML = '<p style="text-align:center;color:#999;padding:20px">加载中...</p>';
+    fetch(API_BASE+'/api/posts')
+      .then(function(r){ if(!r.ok) throw new Error('fail'); return r.json(); })
+      .then(function(result){
+        var list = result.data||[];
+        masonryEl.innerHTML = '';
+        if (!list.length) { masonryEl.innerHTML='<p style="text-align:center;color:#999;padding:20px">还没有帖子，快来发第一条吧！</p>'; return; }
+        list.forEach(function(item,idx){
+          var card = document.createElement('article'); card.className='post-card';
+          var imgDiv = document.createElement('div');
+          if (item.images&&item.images.length>0) {
+            var ri=document.createElement('img'); ri.src=API_BASE+item.images[0]; ri.style.cssText='width:100%;height:160px;object-fit:cover;display:block;';
+            ri.onerror=function(){ imgDiv.className='post-img post-img-g'+((idx%8)+1); imgDiv.style.height='160px'; imgDiv.removeChild(ri); };
+            imgDiv.appendChild(ri);
+          } else { imgDiv.className='post-img post-img-g'+((idx%8)+1); imgDiv.style.height='160px'; }
+          var bodyEl=document.createElement('div'); bodyEl.className='post-body';
+          var ex=document.createElement('p'); ex.className='post-excerpt';
+          var lp=[]; if(item.canteen) lp.push(item.canteen); if(item.shop_name) lp.push(item.shop_name);
+          var bits=[]; if(lp.length) bits.push(lp.join(' · ')); if(item.dish_name) bits.push('推荐：'+item.dish_name);
+          var qq=fmtQuote(item.quote); if(qq) bits.push(qq);
+          if(!bits.length&&item.text) bits.push(String(item.text).slice(0,80));
+          ex.textContent=bits.join(' ');
+          var meta=document.createElement('div'); meta.className='post-meta';
+          var ts=document.createElement('span'); ts.className='post-tag-inline'; ts.textContent=(item.tags&&item.tags.length)?item.tags[0]:'同学推荐';
+          var te=document.createElement('time');
+          if(item.created_at){ var dt=new Date(item.created_at); var ds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); te.setAttribute('datetime',ds); te.textContent=ds; }
+          meta.appendChild(ts); meta.appendChild(te); bodyEl.appendChild(ex); bodyEl.appendChild(meta);
+          card.appendChild(imgDiv); card.appendChild(bodyEl);
+          card.style.cursor='pointer';
+          (function(ci,cidx){
+            card.addEventListener('click',function(){
+              if(ci.id) fetch(API_BASE+'/api/posts/'+ci.id+'/view',{method:'POST'}).catch(function(){});
+              openPostDetail(ci,cidx);
+            });
+          })(item,idx);
+          masonryEl.appendChild(card);
+        });
+      })
+      .catch(function(){ masonryEl.innerHTML='<p style="text-align:center;color:#999;padding:20px">加载失败</p>'; });
+  }
+
+  // ── Restaurant Modal ──
+  var modalBackdrop=document.getElementById('modalBackdrop');
+  var modalClose=document.getElementById('modalClose');
+  var modalWindowTitle=document.getElementById('modalWindowTitle');
+  var modalCanteen=document.getElementById('modalCanteen');
+  var modalDish=document.getElementById('modalDish');
+  var modalDishWrap=document.getElementById('modalDishWrap');
+  var modalReviews=document.getElementById('modalReviews');
+
+  function ensureWantEatBtn(card) {
+    var old=document.getElementById('modalWantEatBtn'); if(old) old.remove();
+    var btn=document.createElement('button'); btn.id='modalWantEatBtn'; btn.type='button'; btn.className='btn-want-eat'; btn.textContent='🤍 我想吃';
+    var rawId=card.getAttribute('data-id'); var tid=rawId?Number(rawId):NaN;
+    if(!rawId||isNaN(tid)) btn.disabled=true;
+    btn.addEventListener('click',function(){
+      if(btn.disabled) return;
+      var id=Number(card.getAttribute('data-id')); if(isNaN(id)) return;
+      fetch(API_BASE+'/api/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:getDeviceId(),target_type:'post',target_id:id,action_type:'i_want_eat'})})
+        .then(function(r){ if(!r.ok) throw new Error('fail'); btn.textContent='❤️ 已收藏'; btn.disabled=true; })
+        .catch(function(){ btn.disabled=false; });
+    });
+    modalDishWrap.insertAdjacentElement('afterend',btn);
+  }
+
+  function openRestModal(card) {
+    modalWindowTitle.textContent=card.getAttribute('data-window')||'';
+    modalCanteen.textContent=card.getAttribute('data-canteen')||'';
+    modalDish.textContent=card.getAttribute('data-dish')||'';
+    var a1=card.getAttribute('data-author1')||'同学', a2=card.getAttribute('data-author2')||'同学';
+    var r1=card.getAttribute('data-rev1')||'', r2=card.getAttribute('data-rev2')||'';
+    modalReviews.innerHTML='<div class="review-item"><div class="review-author">'+esc(a1)+'</div><div class="review-text">'+esc(r1)+'</div></div><div class="review-item"><div class="review-author">'+esc(a2)+'</div><div class="review-text">'+esc(r2)+'</div></div>';
+    ensureWantEatBtn(card);
+    modalBackdrop.classList.add('is-open'); document.body.style.overflow='hidden';
+  }
+  function closeRestModal() { modalBackdrop.classList.remove('is-open'); document.body.style.overflow=''; }
+
+  if (restaurantGrid) restaurantGrid.addEventListener('click',function(e){ var c=e.target.closest('.rest-card'); if(c&&restaurantGrid.contains(c)) openRestModal(c); });
+  modalClose.addEventListener('click',closeRestModal);
+  modalBackdrop.addEventListener('click',function(e){ if(e.target===modalBackdrop) closeRestModal(); });
+
+  // ── Post Compose Modal ──
+  var postModalEl=document.getElementById('postModal');
+  var postUploadZone=document.getElementById('postUploadZone');
+  var postTextarea=document.getElementById('postTextarea');
+
+  function openPostModalFn(){ postModalEl.classList.add('is-open'); document.body.style.overflow='hidden'; }
+  window.openPostModalFn = openPostModalFn;
+  function closePostModal(){
+    postModalEl.classList.remove('is-open'); document.body.style.overflow='';
+    postUploadZone.innerHTML='<span class="material-symbols-outlined">add_photo_alternate</span><span>点击添加图片（可选）</span>';
+    var fin=postModalEl.querySelector('input[type="file"]'); if(fin) fin.value='';
+  }
+
+  var pii=document.createElement('input'); pii.type='file'; pii.accept='image/*'; pii.multiple=true; pii.setAttribute('capture','environment'); pii.style.display='none';
+  postModalEl.querySelector('.modal-post').appendChild(pii);
+  postUploadZone.addEventListener('click',function(){ pii.click(); });
+  pii.addEventListener('change',function(){
+    if(pii.files&&pii.files[0]){ var rd=new FileReader(); rd.onload=function(e){ postUploadZone.innerHTML=''; var img=document.createElement('img'); img.src=e.target.result; img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:10px;'; postUploadZone.appendChild(img); }; rd.readAsDataURL(pii.files[0]); }
+  });
+
+  var bpb=postModalEl.querySelector('.btn-post-publish');
+  bpb.addEventListener('click',function(){
+    var orig=bpb.textContent; bpb.disabled=true; bpb.textContent='发布中...';
+    var fd=new FormData(); fd.append('text',postTextarea.value||''); fd.append('device_id',getDeviceId());
+    if(pii.files&&pii.files.length){ for(var i=0;i<pii.files.length;i++) fd.append('images',pii.files[i]); }
+    fetch(API_BASE+'/api/posts',{method:'POST',body:fd})
+      .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d&&d.message?d.message:'发布失败'); return d; }); })
+      .then(function(){ closePostModal(); postTextarea.value=''; pii.value=''; loadPostsData(); })
+      .catch(function(err){ alert(err&&err.message?err.message:'发布失败，请检查网络'); })
+      .finally(function(){ bpb.disabled=false; bpb.textContent=orig; });
+  });
+
+  document.getElementById('fabPost').addEventListener('click',openPostModalFn);
+  document.getElementById('btnPostTop').addEventListener('click',openPostModalFn);
+  postModalEl.querySelector('.btn-post-esc').addEventListener('click',closePostModal);
+  postModalEl.addEventListener('click',function(e){ if(e.target===postModalEl) closePostModal(); });
+
+  // ── Post Detail Modal ──
+  var pdBd=document.getElementById('pdBackdrop'), pdCg=document.getElementById('pdCloseGlobal');
+  var pdL=document.getElementById('pdLeft'), pdTag=document.getElementById('pdTag'), pdLoc=document.getElementById('pdLoc');
+  var pdDate=document.getElementById('pdDate'), pdViews=document.getElementById('pdViews');
+  var pdTitle=document.getElementById('pdTitle'), pdQW=document.getElementById('pdQuoteWrap');
+  var pdQ=document.getElementById('pdQuote'), pdCo=document.getElementById('pdContent'), pdFT=document.getElementById('pdFootTags');
+  var PDE=['🍜','🍱','🌶️','🥘','🍗','🫕','🍚','🥗'];
+
+  function openPostDetail(item,idx){
+    pdL.innerHTML='';
+    if(item.images&&item.images.length>0){
+      var img=document.createElement('img'); img.src=API_BASE+item.images[0]; img.alt=item.dish_name||'';
+      img.onerror=function(){ pdL.innerHTML=''; var ph=document.createElement('div'); ph.className='pd-left-ph post-img-g'+((idx%8)+1); ph.textContent=PDE[idx%PDE.length]; pdL.appendChild(ph); };
+      pdL.appendChild(img);
+    } else { var ph=document.createElement('div'); ph.className='pd-left-ph post-img-g'+((idx%8)+1); ph.textContent=PDE[idx%PDE.length]; pdL.appendChild(ph); }
+    pdTag.textContent=(item.tags&&item.tags.length)?item.tags[0]:'同学推荐';
+    var loc=[]; if(item.canteen) loc.push(item.canteen); if(item.shop_name) loc.push(item.shop_name);
+    pdLoc.textContent=loc.join(' · '); pdLoc.style.display=loc.length?'':'none';
+    pdDate.textContent=item.created_at?fmtDate(item.created_at):'';
+    var cv=(item.views||0)+1; pdViews.textContent=cv+' 次浏览'; item.views=cv;
+    var tp=[]; if(loc.length) tp.push(loc.join(' · ')); if(item.dish_name) tp.push(item.dish_name);
+    pdTitle.textContent=tp.length?tp.join(' 推荐：'):'同学推荐';
+    if(item.quote){ pdQW.style.display=''; pdQ.textContent='\u201c'+item.quote+'\u201d'; } else pdQW.style.display='none';
+    pdCo.innerHTML='';
+    if(item.text){ item.text.split('\n').forEach(function(l){ if(!l.trim()) return; var p=document.createElement('p'); p.textContent=l; pdCo.appendChild(p); }); }
+    pdFT.innerHTML=''; (item.tags||[]).forEach(function(t){ var s=document.createElement('span'); s.className='pd-foot-tag'; s.textContent=t; pdFT.appendChild(s); });
+    pdBd.classList.add('is-open'); document.body.style.overflow='hidden';
+  }
+  function closePostDetail(){ pdBd.classList.remove('is-open'); document.body.style.overflow=''; }
+  pdCg.addEventListener('click',closePostDetail);
+  pdBd.addEventListener('click',function(e){ if(e.target===pdBd) closePostDetail(); });
+
+  // ── Filter chips ──
+  document.querySelectorAll('.filter-chip').forEach(function(chip){
+    chip.addEventListener('click',function(){
+      document.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('is-active'); });
+      chip.classList.add('is-active');
+    });
+  });
+
+  // ── ESC key ──
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      if(pdBd.classList.contains('is-open')) closePostDetail();
+      else if(modalBackdrop.classList.contains('is-open')) closeRestModal();
+      else if(postModalEl.classList.contains('is-open')) closePostModal();
+    }
+  });
+</script>
+</body>
+</html>
